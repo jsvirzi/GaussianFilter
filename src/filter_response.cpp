@@ -10,7 +10,7 @@
 int main(int argc, char **argv) {
     size_t n = 1024;
     double dt = 0.001;
-    unsigned int xFilterLength = 101, yFilterLength = 2;
+    unsigned int xFilterLength = 61, yFilterLength = 2;
     double T = xFilterLength * dt;
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-n") == 0) {
@@ -50,26 +50,49 @@ int main(int argc, char **argv) {
     double *sa = new double [arraySize];
     double *sb = new double [arraySize];
     double *tt = new double [arraySize];
-    double omega = 2.0 * M_PI * 140.0;
     for (unsigned int i = 0; i < arraySize; ++i) {
         double t = i * dt;
-        si[i] = sin(omega * t);
-        sa[i] = 0.0;
-        sb[i] = 0.0;
         tt[i] = t;
     }
 
-    for (unsigned int i = xFilterLength / 2; i < arraySize; ++i) {
-        double acca = 0.0, accb = 0.0;
-        for (unsigned int j = 0; j < xFilterLength; ++j) {
-            acca = acca + xcra[j] * si[i + xFilterLength / 2 - j];
-            accb = accb + xcrb[j] * si[i + xFilterLength / 2 - j];
-        }
-        sa[i] = acca;
-        sb[i] = accb;
+    unsigned int nFrequencies = 200;
+    double *fa = new double [nFrequencies];
+    double *fb = new double [nFrequencies];
+    double *fx = new double [nFrequencies];
+    for (int j = 0; j < nFrequencies; ++j) {
+        fx[j] = j;
     }
 
-    TGraph *g;
+    for (int j = 0; j < nFrequencies; ++j) {
+        double omega = 2.0 * M_PI * fx[j];
+
+        for (unsigned int i = 0; i < arraySize; ++i) {
+            double t = tt[i];
+            si[i] = sin(omega * t);
+            sa[i] = 0.0;
+            sb[i] = 0.0;
+        }
+
+        for (unsigned int i = xFilterLength / 2; i < arraySize; ++i) {
+            double acca = 0.0, accb = 0.0;
+            for (unsigned int j = 0; j < xFilterLength; ++j) {
+                acca = acca + xcra[j] * si[i + xFilterLength / 2 - j];
+                accb = accb + xcrb[j] * si[i + xFilterLength / 2 - j];
+            }
+            sa[i] = acca;
+            sb[i] = accb;
+        }
+
+        double ea = 0.0, eb = 0.0;
+        for (unsigned int i = xFilterLength / 2; i < arraySize; ++i) {
+            ea = ea + sa[i] * sa[i];
+            eb = eb + sb[i] * sb[i];
+        }
+        fa[j] = ea;
+        fb[j] = eb;
+    }
+
+    TGraph *g, *ga, *gb;
 
     int nDisplay = nSeconds * 25;
     double *tDisplay = new double [nDisplay];
@@ -87,13 +110,21 @@ int main(int argc, char **argv) {
     TGraph *graphXCRb = new TGraph(xFilterLength, tt, xcrb);
     TGraph *graphYa = new TGraph(arraySize, tt, sa);
     TGraph *graphYb = new TGraph(arraySize, tt, sb);
+    TGraph *graphEa = new TGraph(nFrequencies, fx, fa);
+    TGraph *graphEb = new TGraph(nFrequencies, fx, fb);
 //    TGraph *graphXCR = new TGraph(nDisplay, tDisplay, xcra);
 
+    ga = graphEa;
+    gb = graphEb;
+
+    ga->SetLineColor(kBlack);
+    ga->SetLineWidth(3.0);
+    gb->SetLineColor(kRed);
+    gb->SetLineWidth(3.0);
+
     TCanvas *canvas = new TCanvas("canvas", "canvas", 3000, 600);
-    g = graphYb;
-    g->SetLineWidth(3.0);
-    g->SetLineColor(kRed);
-    g->Draw("AL");
+    ga->Draw("AL");
+    gb->Draw("L");
     canvas->Update();
     canvas->Draw();
     canvas->WaitPrimitive();
